@@ -51,6 +51,7 @@ pub enum ServiceError {
 	BaseError(BaseError),
 }
 
+#[tokio::main]
 fn main() {
 	let mut message_bus = ruva::ruva_core::messagebus::MessageBus::<ServiceResponse, ServiceError>::new(command_handler(), event_handler());
 	let data = Order {
