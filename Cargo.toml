@@ -13,8 +13,3 @@ repository = "https://github.com/BeringLab/ruva"
 ruva-core = { version = "0.1.52", path = "./ruva-core" }
 ruva-macro = { version = "0.1.52", path = "./ruva-macro" }
 static_assertions = "1.1.0"
-
-[[example]]
-name = "example1"
-crate-type = ["bin"]
-path = "example1/main.rs"
