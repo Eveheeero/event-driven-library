@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
-use syn::{Data, DataStruct, DeriveInput, Field, Fields, FieldsNamed, Ident, Meta, Path};
+use syn::{parse_quote, Data, DataStruct, DeriveInput, Fields, FieldsNamed, FnArg, ItemFn, Meta, Pat, PatIdent, PatType, Path, Type};
 
-use crate::utils::locate_crate_on_derive_macro;
+use crate::utils::{get_attributes, get_trait_checking_stmts, locate_crate_on_derive_macro};
 
 pub(crate) fn render_message_token(ast: &DeriveInput, propagatability: Vec<TokenStream>, identifier: TokenStream) -> TokenStream {
 	let name = &ast.ident;
@@ -98,17 +98,32 @@ pub(crate) fn find_identifier(ast: &DeriveInput) -> TokenStream {
 	}
 }
 
-fn get_attributes(field: &Field) -> Vec<Ident> {
-	let Field { attrs, .. } = field;
-	{
-		let mut attributes = attrs
-			.iter()
-			.flat_map(|attr| match &attr.meta {
-				Meta::Path(Path { segments, .. }) => segments.iter().map(|segment| segment.ident.clone()).collect::<Vec<Ident>>(),
-				_ => panic!("Only Path"),
-			})
-			.collect::<Vec<_>>();
-		attributes.sort();
-		attributes
+pub(crate) fn event_hook(mut ast: ItemFn) -> TokenStream {
+	if ast.sig.inputs.is_empty() {
+		panic!("There must be message argument!");
+	};
+
+	let mut stmts = get_trait_checking_stmts("::ruva::prelude::Aggregate");
+
+	for aggregate in &ast.sig.inputs.iter().skip(1).collect::<Vec<_>>() {
+		if let FnArg::Typed(PatType { pat, ty, .. }) = aggregate {
+			let ty: Box<Type> = match *ty.clone() {
+				Type::Reference(a) => a.elem,
+				ty => Box::new(ty),
+			};
+
+			if let Pat::Ident(PatIdent { ident, .. }) = *pat.clone() {
+				stmts.push(parse_quote!(
+					if <IsTrait<#ty>>::IS_TRAIT {
+						self.event_hook(<IsTrait<#ty>>::get_data(#ident));
+					}
+				));
+			}
+		}
 	}
+	stmts.extend(std::mem::take(&mut ast.block.stmts));
+	ast.block.stmts = stmts;
+	quote!(
+		#ast
+	)
 }

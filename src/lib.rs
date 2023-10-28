@@ -123,7 +123,7 @@
 //!     cmd: MakeOrder,
 //!     context: AtomicContextManager,
 //! ) -> Result<ServiceResponse, ServiceError> {
-//!     let mut uow = UnitOfWork::<Repository<OrderAggregate>, TExecutor>::new(context).await;
+//!     let mut uow = UnitOfWork::<Repository<OrderAggregate>, SQLExecutor>::new(context).await;
 //!
 //!     let mut order_aggregate = OrderAggregate::new(cmd);
 //!     uow.repository().add(&mut task_aggregate).await?;
@@ -141,7 +141,7 @@
 //!     context: AtomicContextManager,
 //!     payment_gateway_caller: Box<dyn Fn(String, Value) -> Future<(), ServiceError> + Send + Sync + 'static> //injected dependency
 //! ) -> Result<ServiceResponse, ServiceError> {
-//!     let mut uow = UnitOfWork::<Repository<OrderAggregate>, TExecutor>::new(context).await;
+//!     let mut uow = UnitOfWork::<Repository<OrderAggregate>, SQLExecutor>::new(context).await;
 //!
 //!     let mut order_aggregate = OrderAggregate::new(cmd,payment_gateway_caller);
 //!     uow.repository().add(&mut task_aggregate).await?;
@@ -215,37 +215,41 @@ pub mod prelude {
 	pub use ruva_core::message::{Aggregate, Command, Message, MessageMetadata};
 	pub use ruva_core::prelude::*;
 
-	pub use ruva_macro::{aggregate, entity, message_handler, Aggregate, ApplicationError, ApplicationResponse, Command, Message};
+	pub use ruva_macro::{aggregate, entity, event_hook, ApplicationError, ApplicationResponse, Command, Message};
 }
 
 #[cfg(test)]
-mod application_error_derive_test {
-	use std::fmt::Display;
+mod test {
 
-	use crate as ruva;
-	use ruva_core::message::Message;
-	use ruva_core::responses::{AnyError, BaseError};
-	use ruva_macro::ApplicationError;
+	#[test]
+	fn application_error_derive_test() {
+		use std::fmt::Display;
 
-	#[derive(Debug, ApplicationError)]
-	#[crates(ruva)]
-	enum Err {
-		#[stop_sentinel]
-		Items,
-		#[stop_sentinel_with_event]
-		StopSentinelWithEvent(Box<dyn Message>),
-		#[database_error]
-		DatabaseError(Box<AnyError>),
-		BaseError(BaseError),
-	}
+		use crate as ruva;
+		use ruva_core::message::Message;
+		use ruva_core::responses::{AnyError, BaseError};
+		use ruva_macro::ApplicationError;
 
-	impl Display for Err {
-		fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-			match self {
-				Self::Items => write!(f, "items"),
-				Self::StopSentinelWithEvent(item) => write!(f, "{:?}", item),
-				Self::DatabaseError(err) => write!(f, "{:?}", err),
-				Self::BaseError(err) => write!(f, "{:?}", err),
+		#[derive(Debug, ApplicationError)]
+		#[crates(ruva)]
+		enum Err {
+			#[stop_sentinel]
+			Items,
+			#[stop_sentinel_with_event]
+			StopSentinelWithEvent(Box<dyn Message>),
+			#[database_error]
+			DatabaseError(Box<AnyError>),
+			BaseError(BaseError),
+		}
+
+		impl Display for Err {
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+				match self {
+					Self::Items => write!(f, "items"),
+					Self::StopSentinelWithEvent(item) => write!(f, "{:?}", item),
+					Self::DatabaseError(err) => write!(f, "{:?}", err),
+					Self::BaseError(err) => write!(f, "{:?}", err),
+				}
 			}
 		}
 	}

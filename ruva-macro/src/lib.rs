@@ -1,9 +1,8 @@
-use domain::render_aggregate_token;
-
 use message::{find_identifier, render_event_visibility, render_message_token};
 // use outbox::render_outbox_token;
 
 use proc_macro::TokenStream;
+
 use syn::{DeriveInput, ItemFn};
 
 #[macro_use]
@@ -22,13 +21,6 @@ pub fn message_derive(attr: TokenStream) -> TokenStream {
 	let identifier = find_identifier(&ast);
 
 	render_message_token(&ast, propagatability, identifier).into()
-}
-
-#[proc_macro_derive(Aggregate)]
-pub fn aggregate_derive(attr: TokenStream) -> TokenStream {
-	let ast: DeriveInput = syn::parse(attr.clone()).unwrap();
-
-	render_aggregate_token(&ast)
 }
 
 /// Define Aggregate root
@@ -90,6 +82,55 @@ pub fn response_derive(attr: TokenStream) -> TokenStream {
 	result::render_response_token(&ast)
 }
 
+/// Attribute macro for marking repository methods that collect events
+/// ## Example
+/// ```ignore
+///
+/// #[aggregate]
+/// #[derive(Default, Serialize, Deserialize)]
+/// struct TestAggregate {
+///     #[identifier]
+///     pub age: i64,
+/// }
+///
+/// #[async_trait]
+/// impl TRepository<SQLExecutor, TestAggregate> for SqlRepository<TestAggregate> {
+///     fn new(executor: Arc<RwLock<SQLExecutor>>) -> Self {
+///          ...
+///     }
+///
+///     #[event_hook]
+///     async fn update(
+///         &mut self,
+///         aggregate: &mut TestAggregate,
+///     ) -> Result<(), BaseError> {
+///         Ok(())
+///     }
+/// }
+///
+/// async fn test_event_hook() {
+///     '_given: {
+///         let mut repo = SqlRepository::new(SQLExecutor::new());
+///         let mut aggregate = TestAggregate::default().set_age(64);
+///         aggregate.raise_event(SomeEvent { id: aggregate.age }.to_message());
+///
+///         '_when: {
+///             let _ = repo.update(&mut aggregate).await;
+///             let events = repo.get_events();
+///
+///             '_then: {
+///                 assert!(!events.is_empty())
+///             }
+///         }
+///     }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn event_hook(_: TokenStream, input: TokenStream) -> TokenStream {
+	let ast: ItemFn = syn::parse_macro_input!(input as ItemFn);
+	message::event_hook(ast).into()
+}
+
 /// Define a Application Error type that can be used in the ruva.
 ///
 /// Before deriving this, you must impl `Debug`traits.
@@ -137,11 +178,4 @@ pub fn command_derive(attr: TokenStream) -> TokenStream {
 		impl Command for #name{}
 	)
 	.into()
-}
-
-#[proc_macro_attribute]
-pub fn message_handler(_: TokenStream, input: TokenStream) -> TokenStream {
-	let ast: ItemFn = syn::parse_macro_input!(input as ItemFn);
-
-	handler::parse_handler(ast)
 }
