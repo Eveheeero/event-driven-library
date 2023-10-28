@@ -7,8 +7,8 @@ use aggregate::MyObjects;
 use executor::MyDbExecutor;
 use handler::order_handler;
 use repository::MyRepository;
-use ruva::{prelude::*, ruva_core::init_command_handler};
-use ruva_core::init_event_handler;
+use ruva::ruva_core::init_event_handler;
+use ruva::{prelude::*, ruva_core::init_command};
 
 // define command structure
 #[derive(Command, Debug)]
@@ -18,10 +18,7 @@ struct Order {
 	by: Option<String>,
 }
 
-use std::any::{Any, TypeId};
-use std::sync::OnceLock;
-
-init_command_handler!(
+init_command!(
   {
 	Order: order_handler
   }
