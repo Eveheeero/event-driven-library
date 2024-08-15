@@ -22,3 +22,9 @@ backtrace = ["ruva-core/backtrace"]
 sqlx-postgres = ["ruva-core/sqlx-postgres"]
 
 
+[workspace]
+members = [
+    "ruva-core",
+    "ruva-macro",
+    "ruva-build"
+]
